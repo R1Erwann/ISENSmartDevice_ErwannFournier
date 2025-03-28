@@ -1,7 +1,6 @@
 package fr.isen.fournier.androidsmartdevice
 
 import android.annotation.SuppressLint
-import android.annotation.TargetApi
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -75,9 +74,6 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
 
     private var gatt: BluetoothGatt? = null
     private var isConnecting by mutableStateOf(true)
-
-    private var characteristicValue: ByteArray? = byteArrayOf()
-    private var characteristic: BluetoothGattCharacteristic? = null
 
     private var services: List<BluetoothGattService>? = null
     private var service: BluetoothGattService? = null
@@ -257,16 +253,16 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
             handleCharacteristicChanged(gatt, characteristic, value)
         }
 
-        // Gestion des notifications reçues
+        //Gestion des notifications reçues
         private fun handleCharacteristicChanged(
             gatt: BluetoothGatt?,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
             runOnUiThread {
-                notificationCounter++ // Même compteur pour les deux sources
+                notificationCounter++ //Même compteur pour les deux sources
 
-                // Identification de la source
+                //Identification de la source
                 val sourceName = when (characteristic.uuid) {
                     notificationCharacteristic1?.uuid -> "Bouton 1 (Service 3)"
                     notificationCharacteristic2?.uuid -> "Bouton 3 (Service 4)"
