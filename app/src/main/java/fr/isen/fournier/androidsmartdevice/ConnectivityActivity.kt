@@ -16,6 +16,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -44,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.unit.sp
+import fr.isen.fournier.androidsmartdevice.composable.CheckboxListener
 import fr.isen.fournier.androidsmartdevice.composable.DeviceDetails
 import java.util.UUID
 
@@ -57,9 +59,9 @@ interface ImageClickListener {
     fun onImageClicked(imageId: ImageId)
 }
 
-private const val TAG = "BluetoothLeService"
+class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxListener {
 
-class ConnectivityActivity : ComponentActivity(), ImageClickListener {
+    private var notificationCounter by mutableStateOf(0)
 
     private fun BluetoothGattCharacteristic.isIndicatable(): Boolean =
         containsProperty(BluetoothGattCharacteristic.PROPERTY_INDICATE)
@@ -79,7 +81,7 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
     private var services: List<BluetoothGattService>? = null
     private var service: BluetoothGattService? = null
 
-    private var characteristicrec: BluetoothGattCharacteristic? = null
+    private var notificationCharacteristic: BluetoothGattCharacteristic? = null
 
     private var isFirstImageClicked: Boolean = false
     private var isSecondImageClicked: Boolean = false
@@ -89,6 +91,9 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothManager.adapter
     }
+
+    private var lastValue: ByteArray? = null
+    private var lastCounterUpdateTime = 0L
 
     @OptIn(ExperimentalMaterial3Api::class)
     @SuppressLint("MissingPermission")
@@ -135,7 +140,12 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
                 ) {
                     Column {
                         DeviceDetailsScreen()
-                        DeviceDetails(deviceName, this@ConnectivityActivity)
+                        DeviceDetails(
+                            deviceName = deviceName,
+                            clickListener = this@ConnectivityActivity,
+                            listenercheckbox = this@ConnectivityActivity,
+                            counter = notificationCounter // Passe le compteur au composable
+                        )
                         if (device != null) {
                             connectToDevice(device)
                         }
@@ -145,16 +155,14 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
         }
     }
 
-    //Fonction pour exécuter les différent code pour chaque led
     override fun onImageClicked(imageId: ImageId) {
         when (imageId) {
             ImageId.FIRST_IMAGE -> {
                 if (!isFirstImageClicked) {
                     val valueToWrite1 = byteArrayOf(0x01)
-                    Log.e("write", "write")
                     writeValueToCharacteristic(valueToWrite1)
                     isFirstImageClicked = true
-                }else{
+                } else {
                     val valueToWrite4 = byteArrayOf(0x00)
                     writeValueToCharacteristic(valueToWrite4)
                     isFirstImageClicked = false
@@ -163,10 +171,9 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
             ImageId.SECOND_IMAGE -> {
                 if (!isSecondImageClicked) {
                     val valueToWrite2 = byteArrayOf(0x02)
-                    Log.e("write", "write")
                     writeValueToCharacteristic(valueToWrite2)
                     isSecondImageClicked = true
-                }else{
+                } else {
                     val valueToWrite4 = byteArrayOf(0x00)
                     writeValueToCharacteristic(valueToWrite4)
                     isSecondImageClicked = false
@@ -175,10 +182,9 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
             ImageId.THIRD_IMAGE -> {
                 if (!isThirdImageClicked) {
                     val valueToWrite3 = byteArrayOf(0x03)
-                    Log.e("write", "write")
                     writeValueToCharacteristic(valueToWrite3)
                     isThirdImageClicked = true
-                }else{
+                } else {
                     val valueToWrite4 = byteArrayOf(0x00)
                     writeValueToCharacteristic(valueToWrite4)
                     isThirdImageClicked = false
@@ -196,9 +202,7 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
             super.onConnectionStateChange(gatt, status, newState)
-            Log.e("callbackgatt", "Callback gatt")
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.e("callbackgatt", "Callback gatt connected")
                 isConnecting = false
                 gatt?.discoverServices()
             }
@@ -207,143 +211,143 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener {
         @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             super.onServicesDiscovered(gatt, status)
-            Log.e("onservices","OnServiceDiscovered")
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 services = gatt?.services
-                if (services != null && services!!.isNotEmpty()) {
-                    Log.e("ServiceListSize", "Nombre de services découverts : ${services!!.size}")
-                    if(services!!.size >= 3){
-                        val thirdService = services!![2] //Troisième service
-                        val characteristics = thirdService.characteristics
-                        if (characteristics.isNotEmpty()) {
-                            val firstCharacteristic = characteristics[0] //Première caractéristique
-                            Log.e("charac","Acces à la première caractéristique du troisième service")
-                            //Activation des notifications
-                            gatt?.setCharacteristicNotification(firstCharacteristic, true)
-                            val descriptor = firstCharacteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
-                            descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            gatt?.writeDescriptor(descriptor)
-
-
-                        } else {
-                            Log.e("charac","Aucune caractéristique dans le troisième service")
-                        }
+                if (services != null && services!!.size >= 3) {
+                    val thirdService = services!![2]
+                    if (thirdService.characteristics.size >= 2) {
+                        notificationCharacteristic = thirdService.characteristics[1]
+                        Log.d("Bluetooth", "Characteristic for notifications found")
                     }
-                } else {
-                    Log.e("charac","L'appareil ne dispose pas de suffisamment de services")
                 }
-            } else {
-                Log.e("charac","Erreur lors de la découverte des services")
             }
         }
 
-        @OptIn(ExperimentalStdlibApi::class)
-        @Deprecated("Deprecated for Android 13+")
-        @Suppress("DEPRECATION")
+        //Méthode dépréciée pour Android < 13
+        @SuppressLint("MissingPermission", "Deprecation")
         override fun onCharacteristicChanged(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
         ) {
-            with(characteristic) {
-                Log.i("BluetoothGattCallback", "Characteristic $uuid changed | value: ${value.toHexString()}")
+            super.onCharacteristicChanged(gatt, characteristic)
+            characteristic?.let { char ->
+                handleCharacteristicChanged(gatt, char, char.value ?: byteArrayOf())
             }
         }
 
+        //Méthode pour Android 13+
         @OptIn(ExperimentalStdlibApi::class)
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            val newValueHex = value.toHexString()
-            with(characteristic) {
-                Log.i("BluetoothGattCallback", "Characteristic $uuid changed | value: $newValueHex")
+            handleCharacteristicChanged(gatt, characteristic, value)
+        }
+
+        //Fonction commune de traitement
+        private fun handleCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray
+        ) {
+            // Ignorer les valeurs identiques reçues trop rapidement
+            if (value.contentEquals(lastValue) &&
+                System.currentTimeMillis() - lastCounterUpdateTime < 1500) {
+                return
+            }
+
+            lastValue = value
+            lastCounterUpdateTime = System.currentTimeMillis()
+
+            runOnUiThread {
+                notificationCounter++
+                val hexValue = value.joinToString("") { "%02x".format(it) }
+
+                Toast.makeText(
+                    this@ConnectivityActivity,
+                    "▼ Notification ▼\nCompteur: $notificationCounter\nValeur: 0x$hexValue",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                Log.d("Bluetooth", "Notification reçue (${characteristic.uuid}): $hexValue")
             }
         }
     }
 
-    //Fonction pour écrire dans la caractéristique
     @SuppressLint("MissingPermission")
     private fun writeValueToCharacteristic(value: ByteArray) {
-        if (gatt != null) {
-            Log.e("write1","write1")
-            service = gatt?.services?.get(2)
-            Log.e("write2","write2")
+        service = gatt?.services?.getOrNull(2)
+        val characteristic = service?.characteristics?.getOrNull(0)
 
-            if (service != null && service!!.characteristics.isNotEmpty()) {
-                Log.e("write3","write3")
-                val characteristic = service!!.characteristics[0]
-                characteristicrec = service!!.characteristics[1]
-                if (characteristic != null) {
-                    Log.e("write4","write4")
-                    characteristic.value = value
-                    gatt?.writeCharacteristic(characteristic)
-                } else {
-                    Log.e("writeValueToCharacteristic", "Caractéristique non valide")
-                }
+        if (characteristic != null) {
+            characteristic.value = value
+            gatt?.writeCharacteristic(characteristic)
+        }
+    }
+
+    override fun onCheckboxChecked(checked: Boolean) {
+        notificationCharacteristic?.let { characteristic ->
+            if (checked) {
+                enableNotifications(characteristic)
+                Toast.makeText(this, "Abonnement activé", Toast.LENGTH_SHORT).show()
             } else {
-                Log.e("writeValueToCharacteristic", "Aucune caractéristique dans le troisième service")
+                disableNotifications(characteristic)
+                Toast.makeText(this, "Abonnement désactivé", Toast.LENGTH_SHORT).show()
             }
-        } else {
-            Log.e("writeValueToCharacteristic", "Connexion Bluetooth non établie")
+        } ?: run {
+            Toast.makeText(this, "Caractéristique non trouvée", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun enableNotifications(characteristic: BluetoothGattCharacteristic) {
+        if (!characteristic.isNotifiable()) {
+            Log.e("Bluetooth", "La caractéristique ne supporte pas les notifications")
+            return
+        }
+
+        val cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        characteristic.getDescriptor(cccdUuid)?.let { descriptor ->
+            gatt?.setCharacteristicNotification(characteristic, true)
+            Log.d("Bluetooth", "Notification activée sur ${characteristic.uuid}")
+            descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            gatt?.writeDescriptor(descriptor)
+        } ?: run {
+            Log.e("Bluetooth", "Descripteur CCCD non trouvé")
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun disableNotifications(characteristic: BluetoothGattCharacteristic) {
+        val cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        characteristic.getDescriptor(cccdUuid)?.let { descriptor ->
+            gatt?.setCharacteristicNotification(characteristic, false)
+            descriptor.value = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+            gatt?.writeDescriptor(descriptor)
+        } ?: run {
+            Log.e("Bluetooth", "Descripteur CCCD non trouvé")
         }
     }
 
     @SuppressLint("MissingPermission")
     override fun onDestroy() {
         super.onDestroy()
+        notificationCharacteristic?.let { disableNotifications(it) }
         gatt?.disconnect()
         gatt?.close()
     }
 
     @Composable
     fun DeviceDetailsScreen() {
-        if (!isConnecting) {
-            Text(
-                text = "Connexion établie",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                textAlign = TextAlign.Center,
-                style = TextStyle(
-                    fontWeight = FontWeight.Bold,
-                )
-            )
-        } else {
-            Text(
-                text = "Connexion en cours",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                textAlign = TextAlign.Center,
-                style = TextStyle(
-                    fontWeight = FontWeight.Bold
-                )
-            )
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    fun writeDescriptor(descriptor: BluetoothGattDescriptor, payload: ByteArray) {
-        gatt?.let { gatt ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                gatt.writeDescriptor(descriptor, payload)
-            } else {
-                //Passe à la version depreciée si la version Android < 13
-                gatt.legacyDescriptorWrite(descriptor, payload)
-            }
-        } ?: error("Not connected to a BLE device!")
-    }
-
-    @SuppressLint("MissingPermission")
-    @TargetApi(Build.VERSION_CODES.S)
-    @Suppress("DEPRECATION")
-    private fun BluetoothGatt.legacyDescriptorWrite(
-        descriptor: BluetoothGattDescriptor,
-        value: ByteArray
-    ) {
-        descriptor.value = value
-        writeDescriptor(descriptor)
+        Text(
+            text = if (isConnecting) "Connexion en cours" else "Connexion établie",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            textAlign = TextAlign.Center,
+            style = TextStyle(fontWeight = FontWeight.Bold)
+        )
     }
 
     private fun goBackToScan() {

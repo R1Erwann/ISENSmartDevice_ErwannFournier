@@ -27,10 +27,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import fr.isen.fournier.androidsmartdevice.ImageClickListener
 import fr.isen.fournier.androidsmartdevice.ImageId
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.text.style.TextAlign.Companion.Center
 import fr.isen.fournier.androidsmartdevice.R
 
+interface CheckboxListener {
+    fun onCheckboxChecked(checked: Boolean)
+}
+
 @Composable
-fun DeviceDetails(deviceName: String, clickListener: ImageClickListener) {
+fun DeviceDetails(deviceName: String, clickListener: ImageClickListener, listenercheckbox: CheckboxListener, counter: Int) {
+    var isChecked by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -56,19 +68,19 @@ fun DeviceDetails(deviceName: String, clickListener: ImageClickListener) {
             horizontalArrangement = Arrangement.Center
         ) {
             val imageResource = painterResource(id = R.drawable.led)
-            var clicked_fimage by remember { mutableStateOf(false) }
-            var clicked_simage by remember { mutableStateOf(false) }
-            var clicked_timage by remember { mutableStateOf(false) }
+            var clicked_image1 by remember { mutableStateOf(false) }
+            var clicked_image2 by remember { mutableStateOf(false) }
+            var clicked_image3 by remember { mutableStateOf(false) }
             Image(
                 painter = imageResource,
                 contentDescription = "LED 1",
                 modifier = Modifier
                     .size(80.dp)
                     .clickable {
-                        clicked_fimage = !clicked_fimage
+                        clicked_image1 = !clicked_image1
                         clickListener.onImageClicked(ImageId.FIRST_IMAGE)
                     },
-                colorFilter = if (clicked_fimage) ColorFilter.tint(Color.Blue)
+                colorFilter = if (clicked_image1) ColorFilter.tint(Color.Blue)
                 else ColorFilter.tint(Color.Black)
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -78,10 +90,10 @@ fun DeviceDetails(deviceName: String, clickListener: ImageClickListener) {
                 modifier = Modifier
                     .size(80.dp)
                     .clickable {
-                        clicked_simage = !clicked_simage
+                        clicked_image2 = !clicked_image2
                         clickListener.onImageClicked(ImageId.SECOND_IMAGE)
                     },
-                colorFilter = if (clicked_simage) ColorFilter.tint(Color.Green)
+                colorFilter = if (clicked_image2) ColorFilter.tint(Color.Green)
                 else ColorFilter.tint(Color.Black)
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -91,11 +103,49 @@ fun DeviceDetails(deviceName: String, clickListener: ImageClickListener) {
                 modifier = Modifier
                     .size(80.dp)
                     .clickable {
-                        clicked_timage = !clicked_timage
+                        clicked_image3 = !clicked_image3
                         clickListener.onImageClicked(ImageId.THIRD_IMAGE)
                     },
-                colorFilter = if (clicked_timage) ColorFilter.tint(Color.Red)
+                colorFilter = if (clicked_image3) ColorFilter.tint(Color.Red)
                 else ColorFilter.tint(Color.Black)
+            )
+        }
+        Spacer(modifier = Modifier.height(32.dp))
+        Column {
+            Text(
+                text = "Abonnez-vous pour recevoir le nombre d'incrémentation",
+                style = TextStyle(fontSize = 17.sp),
+                textAlign = Center,
+                modifier = Modifier.padding(8.dp)
+            )
+            val context = LocalContext.current
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentSize(Alignment.Center)
+            ) {
+                Checkbox(
+                    checked = isChecked,
+                    onCheckedChange = { checked ->
+                        isChecked = checked
+                        listenercheckbox.onCheckboxChecked(checked)
+                    },
+                    modifier = Modifier
+                        .size(24.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Row {
+            Text(
+                text = "Nombre : ",
+                style = TextStyle(fontSize = 17.sp),
+                modifier = Modifier.padding(start = 8.dp)
+            )
+            Text(
+                text = counter.toString(),
+                style = TextStyle(fontSize = 17.sp),
+                modifier = Modifier.padding(start = 8.dp)
             )
         }
     }
