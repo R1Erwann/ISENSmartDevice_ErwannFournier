@@ -4,8 +4,13 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,9 +19,6 @@ import android.app.Activity
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
-import android.content.Intent
-import android.os.Build
-import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -157,7 +159,11 @@ class ScanActivity : ComponentActivity() {
     //Vérifie si le Bluetooth est activé ou non
     private fun checkBluetoothActivated() {
         if (bluetoothAdapter!!.isEnabled) {
-            toggleScan()
+            if (isLocationEnabled()) {
+                toggleScan()
+            } else {
+                requestLocationActivation()
+            }
         } else {
             requestBluetoothActivation()
         }
@@ -173,6 +179,35 @@ class ScanActivity : ComponentActivity() {
                 }
             }
         bluetoothLauncher.launch(enableBtIntent)
+    }
+
+    private fun isLocationEnabled(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // Pour Android 9 (Pie) et supérieur
+            val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+            locationManager.isLocationEnabled
+        } else {
+            // Pour les versions antérieures
+            val mode = Settings.Secure.getInt(
+                contentResolver,
+                Settings.Secure.LOCATION_MODE,
+                Settings.Secure.LOCATION_MODE_OFF
+            )
+            mode != Settings.Secure.LOCATION_MODE_OFF
+        }
+    }
+
+    private fun requestLocationActivation() {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Localisation requise")
+        builder.setMessage("Pour scanner les appareils Bluetooth, les services de localisation doivent être activés")
+        builder.setPositiveButton("Activer") { _, _ ->
+            startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+        }
+        builder.setNegativeButton("Annuler") { _, _ ->
+            finish()
+        }
+        builder.show()
     }
 
     //Vérifie si toutes les permissions sont autorisés
@@ -220,6 +255,10 @@ class ScanActivity : ComponentActivity() {
 
     //Méthode pour démarrer le scan
     private fun startScan() {
+        if (!isLocationEnabled()) {
+            requestLocationActivation()
+            return
+        }
         try {
             devices.clear()
             bluetoothLeScanner?.startScan(leScanCallback)
