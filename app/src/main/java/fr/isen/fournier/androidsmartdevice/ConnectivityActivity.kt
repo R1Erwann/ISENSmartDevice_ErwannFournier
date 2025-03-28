@@ -45,7 +45,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.unit.sp
-import fr.isen.fournier.androidsmartdevice.composable.CheckboxListener
+import fr.isen.fournier.androidsmartdevice.composable.CheckboxListener1
+import fr.isen.fournier.androidsmartdevice.composable.CheckboxListener2
 import fr.isen.fournier.androidsmartdevice.composable.DeviceDetails
 import java.util.UUID
 
@@ -59,7 +60,7 @@ interface ImageClickListener {
     fun onImageClicked(imageId: ImageId)
 }
 
-class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxListener {
+class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxListener1, CheckboxListener2 {
 
     private var notificationCounter by mutableStateOf(0)
 
@@ -81,7 +82,8 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
     private var services: List<BluetoothGattService>? = null
     private var service: BluetoothGattService? = null
 
-    private var notificationCharacteristic: BluetoothGattCharacteristic? = null
+    private var notificationCharacteristic1: BluetoothGattCharacteristic? = null // Service 3, Char 2
+    private var notificationCharacteristic2: BluetoothGattCharacteristic? = null // Service 4, Char 1
 
     private var isFirstImageClicked: Boolean = false
     private var isSecondImageClicked: Boolean = false
@@ -143,7 +145,8 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
                         DeviceDetails(
                             deviceName = deviceName,
                             clickListener = this@ConnectivityActivity,
-                            listenercheckbox = this@ConnectivityActivity,
+                            listenercheckbox1 = this@ConnectivityActivity,
+                            listenercheckbox2 = this@ConnectivityActivity,
                             counter = notificationCounter // Passe le compteur au composable
                         )
                         if (device != null) {
@@ -213,11 +216,20 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
             super.onServicesDiscovered(gatt, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 services = gatt?.services
-                if (services != null && services!!.size >= 3) {
+                if (services != null && services!!.size >= 4) { // Vérifie qu'il y a au moins 4 services
+
+                    // Service 3 (index 2) - Caractéristique 2 (index 1)
                     val thirdService = services!![2]
                     if (thirdService.characteristics.size >= 2) {
-                        notificationCharacteristic = thirdService.characteristics[1]
-                        Log.d("Bluetooth", "Characteristic for notifications found")
+                        notificationCharacteristic1 = thirdService.characteristics[1]
+                        Log.d("Bluetooth", "Caractéristique 1 trouvée: ${notificationCharacteristic1?.uuid}")
+                    }
+
+                    // Service 4 (index 3) - Caractéristique 1 (index 0)
+                    val fourthService = services!![3]
+                    if (fourthService.characteristics.isNotEmpty()) {
+                        notificationCharacteristic2 = fourthService.characteristics[0]
+                        Log.d("Bluetooth", "Caractéristique 2 trouvée: ${notificationCharacteristic2?.uuid}")
                     }
                 }
             }
@@ -245,32 +257,30 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
             handleCharacteristicChanged(gatt, characteristic, value)
         }
 
-        //Fonction commune de traitement
+        // Gestion des notifications reçues
         private fun handleCharacteristicChanged(
             gatt: BluetoothGatt?,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            // Ignorer les valeurs identiques reçues trop rapidement
-            if (value.contentEquals(lastValue) &&
-                System.currentTimeMillis() - lastCounterUpdateTime < 1500) {
-                return
-            }
-
-            lastValue = value
-            lastCounterUpdateTime = System.currentTimeMillis()
-
             runOnUiThread {
-                notificationCounter++
+                notificationCounter++ // Même compteur pour les deux sources
+
+                // Identification de la source
+                val sourceName = when (characteristic.uuid) {
+                    notificationCharacteristic1?.uuid -> "Bouton 1 (Service 3)"
+                    notificationCharacteristic2?.uuid -> "Bouton 3 (Service 4)"
+                    else -> "Inconnu"
+                }
+
                 val hexValue = value.joinToString("") { "%02x".format(it) }
+                Log.d("Bluetooth", "Notification de $sourceName: 0x$hexValue")
 
                 Toast.makeText(
                     this@ConnectivityActivity,
-                    "▼ Notification ▼\nCompteur: $notificationCounter\nValeur: 0x$hexValue",
-                    Toast.LENGTH_LONG
+                    "Notification de $sourceName\nCompteur: $notificationCounter",
+                    Toast.LENGTH_SHORT
                 ).show()
-
-                Log.d("Bluetooth", "Notification reçue (${characteristic.uuid}): $hexValue")
             }
         }
     }
@@ -286,38 +296,55 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
         }
     }
 
-    override fun onCheckboxChecked(checked: Boolean) {
-        notificationCharacteristic?.let { characteristic ->
+    // Implémentation de CheckboxListener1 (Bouton 1 - Service 3)
+    override fun onCheckbox1Checked(checked: Boolean) {
+        notificationCharacteristic1?.let { characteristic ->
             if (checked) {
                 enableNotifications(characteristic)
-                Toast.makeText(this, "Abonnement activé", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Abonnement Bouton 1 activé", Toast.LENGTH_SHORT).show()
             } else {
                 disableNotifications(characteristic)
-                Toast.makeText(this, "Abonnement désactivé", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Abonnement Bouton 1 désactivé", Toast.LENGTH_SHORT).show()
             }
         } ?: run {
-            Toast.makeText(this, "Caractéristique non trouvée", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Caractéristique Bouton 1 non trouvée", Toast.LENGTH_LONG).show()
         }
     }
 
+    // Implémentation de CheckboxListener2 (Bouton 3 - Service 4)
+    override fun onCheckbox2Checked(checked: Boolean) {
+        notificationCharacteristic2?.let { characteristic ->
+            if (checked) {
+                enableNotifications(characteristic)
+                Toast.makeText(this, "Abonnement Bouton 3 activé", Toast.LENGTH_SHORT).show()
+            } else {
+                disableNotifications(characteristic)
+                Toast.makeText(this, "Abonnement Bouton 3 désactivé", Toast.LENGTH_SHORT).show()
+            }
+        } ?: run {
+            Toast.makeText(this, "Caractéristique Bouton 3 non trouvée", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Méthode commune pour activer les notifications
     @SuppressLint("MissingPermission")
     private fun enableNotifications(characteristic: BluetoothGattCharacteristic) {
         if (!characteristic.isNotifiable()) {
-            Log.e("Bluetooth", "La caractéristique ne supporte pas les notifications")
+            Toast.makeText(this, "Cette caractéristique ne supporte pas les notifications", Toast.LENGTH_LONG).show()
             return
         }
 
         val cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         characteristic.getDescriptor(cccdUuid)?.let { descriptor ->
             gatt?.setCharacteristicNotification(characteristic, true)
-            Log.d("Bluetooth", "Notification activée sur ${characteristic.uuid}")
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             gatt?.writeDescriptor(descriptor)
         } ?: run {
-            Log.e("Bluetooth", "Descripteur CCCD non trouvé")
+            Toast.makeText(this, "Descripteur CCCD introuvable", Toast.LENGTH_LONG).show()
         }
     }
 
+    // Méthode commune pour désactiver les notifications
     @SuppressLint("MissingPermission")
     private fun disableNotifications(characteristic: BluetoothGattCharacteristic) {
         val cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
@@ -325,15 +352,13 @@ class ConnectivityActivity : ComponentActivity(), ImageClickListener, CheckboxLi
             gatt?.setCharacteristicNotification(characteristic, false)
             descriptor.value = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
             gatt?.writeDescriptor(descriptor)
-        } ?: run {
-            Log.e("Bluetooth", "Descripteur CCCD non trouvé")
         }
     }
+
 
     @SuppressLint("MissingPermission")
     override fun onDestroy() {
         super.onDestroy()
-        notificationCharacteristic?.let { disableNotifications(it) }
         gatt?.disconnect()
         gatt?.close()
     }

@@ -36,13 +36,26 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.ui.text.style.TextAlign.Companion.Center
 import fr.isen.fournier.androidsmartdevice.R
 
-interface CheckboxListener {
-    fun onCheckboxChecked(checked: Boolean)
+interface CheckboxListener1 {
+    fun onCheckbox1Checked(checked: Boolean)
+}
+
+interface CheckboxListener2 {
+    fun onCheckbox2Checked(checked: Boolean)
 }
 
 @Composable
-fun DeviceDetails(deviceName: String, clickListener: ImageClickListener, listenercheckbox: CheckboxListener, counter: Int) {
-    var isChecked by remember { mutableStateOf(false) }
+fun DeviceDetails(
+    deviceName: String,
+    clickListener: ImageClickListener,
+    listenercheckbox1: CheckboxListener1,
+    listenercheckbox2: CheckboxListener2,
+    counter: Int
+) {
+    var isChecked1 by remember { mutableStateOf(false) }
+    var isChecked2 by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -54,88 +67,117 @@ fun DeviceDetails(deviceName: String, clickListener: ImageClickListener, listene
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(modifier = Modifier.height(32.dp))
+
         Text(
             text = "Affichage des differentes LEDs",
             style = TextStyle(fontSize = 18.sp),
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(modifier = Modifier.height(16.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
             val imageResource = painterResource(id = R.drawable.led)
-            var clicked_image1 by remember { mutableStateOf(false) }
-            var clicked_image2 by remember { mutableStateOf(false) }
-            var clicked_image3 by remember { mutableStateOf(false) }
+            var clicked_fimage by remember { mutableStateOf(false) }
+            var clicked_simage by remember { mutableStateOf(false) }
+            var clicked_timage by remember { mutableStateOf(false) }
+
             Image(
                 painter = imageResource,
                 contentDescription = "LED 1",
                 modifier = Modifier
                     .size(80.dp)
                     .clickable {
-                        clicked_image1 = !clicked_image1
+                        clicked_fimage = !clicked_fimage
                         clickListener.onImageClicked(ImageId.FIRST_IMAGE)
                     },
-                colorFilter = if (clicked_image1) ColorFilter.tint(Color.Blue)
+                colorFilter = if (clicked_fimage) ColorFilter.tint(Color.Blue)
                 else ColorFilter.tint(Color.Black)
             )
+
             Spacer(modifier = Modifier.width(16.dp))
+
             Image(
                 painter = imageResource,
                 contentDescription = "LED 2",
                 modifier = Modifier
                     .size(80.dp)
                     .clickable {
-                        clicked_image2 = !clicked_image2
+                        clicked_simage = !clicked_simage
                         clickListener.onImageClicked(ImageId.SECOND_IMAGE)
                     },
-                colorFilter = if (clicked_image2) ColorFilter.tint(Color.Green)
+                colorFilter = if (clicked_simage) ColorFilter.tint(Color.Green)
                 else ColorFilter.tint(Color.Black)
             )
+
             Spacer(modifier = Modifier.width(16.dp))
+
             Image(
                 painter = imageResource,
                 contentDescription = "LED 3",
                 modifier = Modifier
                     .size(80.dp)
                     .clickable {
-                        clicked_image3 = !clicked_image3
+                        clicked_timage = !clicked_timage
                         clickListener.onImageClicked(ImageId.THIRD_IMAGE)
                     },
-                colorFilter = if (clicked_image3) ColorFilter.tint(Color.Red)
+                colorFilter = if (clicked_timage) ColorFilter.tint(Color.Red)
                 else ColorFilter.tint(Color.Black)
             )
         }
+
         Spacer(modifier = Modifier.height(32.dp))
-        Column {
-            Text(
-                text = "Abonnez-vous pour recevoir le nombre d'incrémentation",
-                style = TextStyle(fontSize = 17.sp),
-                textAlign = Center,
-                modifier = Modifier.padding(8.dp)
-            )
-            val context = LocalContext.current
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentSize(Alignment.Center)
-            ) {
+
+        // Nouvelle Row pour les deux Checkbox
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Checkbox 1
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Bouton 1",
+                    style = TextStyle(fontSize = 16.sp),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
                 Checkbox(
-                    checked = isChecked,
+                    checked = isChecked1,
                     onCheckedChange = { checked ->
-                        isChecked = checked
-                        listenercheckbox.onCheckboxChecked(checked)
+                        isChecked1 = checked
+                        listenercheckbox1.onCheckbox1Checked(checked)
                     },
-                    modifier = Modifier
-                        .size(24.dp)
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Checkbox 2
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Bouton 3",
+                    style = TextStyle(fontSize = 16.sp),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Checkbox(
+                    checked = isChecked2,
+                    onCheckedChange = { checked ->
+                        isChecked2 = checked
+                        listenercheckbox2.onCheckbox2Checked(checked)
+                    },
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
+
         Spacer(modifier = Modifier.height(16.dp))
+
         Row {
             Text(
                 text = "Nombre : ",
